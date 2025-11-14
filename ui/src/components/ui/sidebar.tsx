@@ -163,6 +163,22 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
+  // Handle focus management when sidebar opens/closes
+  // This must be outside the conditional to follow the Rules of Hooks
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    // If closing and there's a focused element, blur it temporarily
+    if (!open && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+      // Refocus after a brief delay to avoid aria-hidden conflict
+      setTimeout(() => {
+        if (document.activeElement === document.body && document.querySelector('input:not([type="hidden"])')) {
+          (document.querySelector('input:not([type="hidden"])') as HTMLElement)?.focus()
+        }
+      }, 100)
+    }
+    setOpenMobile(open)
+  }, [setOpenMobile])
+
   if (collapsible === "none") {
     return (
       <div
@@ -179,8 +195,9 @@ function Sidebar({
   }
 
   if (isMobile) {
+
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openMobile} onOpenChange={handleOpenChange} {...props}>
         <SheetContent
           data-sidebar="sidebar"
           data-slot="sidebar"

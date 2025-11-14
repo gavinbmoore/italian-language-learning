@@ -16,6 +16,7 @@ The API uses `.dev.vars` for local development configuration and Cloudflare's da
    ```
    DATABASE_URL=postgresql://user:password@your-db-host/your-db-name
    FIREBASE_PROJECT_ID=your-firebase-project-id
+   YOUTUBE_API_KEY=your-youtube-api-key  # Optional: Required for grammar video tutorials
    ```
 
 3. Update the worker name in `wrangler.toml`:
@@ -33,6 +34,40 @@ The API uses Firebase Authentication. To set up Firebase:
 4. Add it to your environment variables as `FIREBASE_PROJECT_ID`
 
 The API uses Firebase's public JWKS endpoint to verify tokens, so no additional credentials are needed.
+
+## YouTube API Setup (Optional)
+
+The grammar learning feature includes YouTube video tutorials. To enable this functionality:
+
+1. **Create a Google Cloud Project:**
+   - Go to the [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project or select an existing one
+
+2. **Enable YouTube Data API v3:**
+   - In the Cloud Console, navigate to "APIs & Services" > "Library"
+   - Search for "YouTube Data API v3"
+   - Click "Enable"
+
+3. **Create an API Key:**
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "API Key"
+   - Copy the generated API key
+
+4. **Configure the API Key:**
+   - Add the API key to your `.dev.vars` file:
+     ```
+     YOUTUBE_API_KEY=your-api-key-here
+     ```
+   - For production, add it to your Cloudflare Workers environment variables
+
+5. **Set Quota Alerts (Recommended):**
+   - In the Cloud Console, go to "APIs & Services" > "Dashboard"
+   - Click on "YouTube Data API v3"
+   - Navigate to "Quotas" to monitor usage
+   - The free tier provides 10,000 units/day (each search costs ~100 units)
+   - Set up quota alerts to avoid unexpected charges
+
+**Note:** If the `YOUTUBE_API_KEY` is not configured, the grammar video feature will gracefully fail and no videos will be shown. All other features will continue to work normally.
 
 ## Development Server Configuration
 
@@ -93,6 +128,7 @@ pnpm wrangler deploy
 This will deploy to your Cloudflare Workers environment using the name specified in `wrangler.toml`. Make sure to configure your production environment variables in the Cloudflare dashboard with your production values for:
 - DATABASE_URL
 - FIREBASE_PROJECT_ID
+- YOUTUBE_API_KEY (optional, for grammar video tutorials)
 
 ## Environment Variables
 

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { serve } from '@hono/node-server';
 import app from './api';
-import { getEnv, getDatabaseUrl, isLocalEmbeddedPostgres } from './lib/env';
+import { getEnv, getDatabaseUrl, isLocalEmbeddedPostgres, validateEnvironment } from './lib/env';
 
 // Parse CLI arguments
 const parseCliArgs = () => {
@@ -28,6 +28,24 @@ const getPostgresPortFromDatabaseUrl = (): number => {
 };
 
 const startServer = async () => {
+  // Validate environment variables before starting
+  try {
+    console.log('🔍 Validating environment variables...');
+    validateEnvironment();
+    
+    // Confirm OpenAI API key is loaded (without exposing the full key)
+    const openaiKey = getEnv('OPENAI_API_KEY');
+    if (openaiKey) {
+      console.log(`✅ OPENAI_API_KEY loaded (${openaiKey.substring(0, 8)}...)`);
+    } else {
+      console.error('⚠️  OPENAI_API_KEY not found in environment');
+    }
+  } catch (error) {
+    console.error('❌ Environment validation failed:');
+    console.error(error instanceof Error ? error.message : 'Unknown error');
+    process.exit(1);
+  }
+  
   console.log(`🚀 Starting backend server on port ${port}`);
   
   if (!getDatabaseUrl() || isLocalEmbeddedPostgres()) {

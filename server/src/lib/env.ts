@@ -16,7 +16,9 @@ export function clearEnvContext() {
 }
 
 function getEnvSource(): EnvLike {
-  return contextEnv || process.env;
+  // Always fallback to process.env if contextEnv is not set
+  // This ensures environment variables are accessible even before middleware runs
+  return contextEnv || (typeof process !== 'undefined' ? process.env : {});
 }
 
 /**
@@ -92,4 +94,49 @@ export function getNodeEnv() {
 export function isCloudflareEnv(source: EnvLike): boolean {
   // In Cloudflare Workers, process.env is not available or is empty
   return typeof process === 'undefined' || Object.keys(process.env).length === 0;
+}
+
+/**
+ * Validate required environment variables at startup
+ * Throws an error if any required variables are missing
+ */
+export function validateEnvironment(): void {
+  const requiredVars = [
+    'OPENAI_API_KEY',
+    'FIREBASE_PROJECT_ID',
+  ] as const;
+  
+  const missing: string[] = [];
+  
+  for (const varName of requiredVars) {
+    if (!getEnv(varName)) {
+      missing.push(varName);
+    }
+  }
+  
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables:\n  - ${missing.join('\n  - ')}\n\n` +
+      'Please ensure these variables are set in your .env file or environment.'
+    );
+  }
+  
+  // Warn about missing optional but recommended variables
+  const recommendedVars = ['DATABASE_URL'] as const;
+  const missingRecommended: string[] = [];
+  
+  for (const varName of recommendedVars) {
+    if (!getEnv(varName)) {
+      missingRecommended.push(varName);
+    }
+  }
+  
+  if (missingRecommended.length > 0) {
+    console.warn(
+      `⚠️  Missing recommended environment variables:\n  - ${missingRecommended.join('\n  - ')}\n` +
+      'The application will use default values, which may not be suitable for production.'
+    );
+  }
+  
+  console.log('✅ Environment variables validated successfully');
 } 

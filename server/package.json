@@ -6,7 +6,10 @@
     "dev": "tsx watch src/server.ts",
     "deploy": "npm run deploy:cf",
     "deploy:cf": "node scripts/deploy-cloudflare.js",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "db:push": "drizzle-kit push:pg"
   },
   "dependencies": {
@@ -18,7 +21,9 @@
     "fs-extra": "^11.2.0",
     "hono": "^4.0.5",
     "jose": "^5.2.3",
-    "postgres": "^3.4.7"
+    "openai": "^4.104.0",
+    "postgres": "^3.4.7",
+    "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240208.0",

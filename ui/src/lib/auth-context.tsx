@@ -51,6 +51,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setLoading(true);
 
+        // Check if we should skip auth entirely (for development)
+        const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true' || 
+                        import.meta.env.VITE_ALLOW_ANONYMOUS_USERS === 'false';
+        
+        if (skipAuth) {
+          // Skip all authentication - create a mock user
+          const mockUser = {
+            uid: 'demo-user-123',
+            email: 'demo@example.com',
+            displayName: 'Demo User',
+            isAnonymous: false,
+          } as any;
+          setUser(mockUser);
+          setUserProfile({
+            id: 'demo-user-123',
+            email: 'demo@example.com',
+            display_name: 'Demo User',
+            photo_url: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          });
+          setLoading(false);
+          setProfileLoading(false);
+          return;
+        }
+
         // Set up Firebase auth listener
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
           // If this effect has been cleaned up, ignore the callback
