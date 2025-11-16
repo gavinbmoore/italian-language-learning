@@ -2554,6 +2554,311 @@ readingRoutes.post('/:textId/complete', async (c) => {
 // Mount reading routes
 api.route('/protected/reading', readingRoutes);
 
+// ========================================
+// ANKI DECK IMPORT ROUTES
+// ========================================
+const ankiRoutes = new Hono<{ Bindings: Env }>();
+
+// Import Anki functions
+import {
+  importDeck,
+  deleteDeck,
+  getUserDecks,
+  getDeck,
+} from './lib/anki-import';
+import {
+  getAnkiStudyCards,
+  reviewAnkiCard,
+  getAnkiDeckStats,
+  updateDeckLastStudied,
+  getTotalAnkiDueCount,
+} from './lib/anki-deck-review';
+import { ankiMedia, ankiDecks } from './schema/anki';
+
+// Import Anki deck from .apkg file
+ankiRoutes.post('/import', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    
+    console.log('📥 Import request received');
+    
+    // Parse multipart form data
+    const body = await c.req.parseBody();
+    const file = body['file'] as File;
+    const customName = body['name'] as string | undefined;
+    
+    if (!file) {
+      console.error('❌ No file provided');
+      return c.json({ error: 'No file provided' }, 400);
+    }
+    
+    // Check file extension
+    if (!file.name.endsWith('.apkg')) {
+      console.error('❌ Invalid file extension:', file.name);
+      return c.json({ error: 'File must be an .apkg file' }, 400);
+    }
+    
+    // Read file buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    console.log(`📦 Importing deck from file: ${file.name} (${buffer.length} bytes)`);
+    console.log(`👤 User: ${userId}`);
+    
+    // Import the deck
+    const result = await importDeck(userId, buffer, customName);
+    
+    console.log('✅ Import successful:', result.deckId);
+    
+    return c.json({
+      success: true,
+      deck: result,
+    });
+  } catch (error) {
+    console.error('❌ Error importing Anki deck:');
+    console.error('Error type:', error?.constructor?.name);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    return c.json(formatErrorResponse(error, 'Failed to import deck'), 500);
+  }
+});
+
+// Get all decks for user
+ankiRoutes.get('/decks', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    
+    const decks = await getUserDecks(userId);
+    
+    // Get due count for each deck
+    const decksWithStats = await Promise.all(
+      decks.map(async (deck) => {
+        const stats = await getAnkiDeckStats(userId, deck.id);
+        return {
+          ...deck,
+          stats,
+        };
+      })
+    );
+    
+    return c.json({
+      decks: decksWithStats,
+      count: decksWithStats.length,
+    });
+  } catch (error) {
+    console.error('Error fetching Anki decks:', error);
+    return c.json(formatErrorResponse(error, 'Failed to fetch decks'), 500);
+  }
+});
+
+// Get total due count across all decks
+ankiRoutes.get('/due-count', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    
+    const dueCount = await getTotalAnkiDueCount(userId);
+    
+    return c.json({ dueCount });
+  } catch (error) {
+    console.error('Error fetching due count:', error);
+    return c.json(formatErrorResponse(error, 'Failed to fetch due count'), 500);
+  }
+});
+
+// Get single deck details
+ankiRoutes.get('/decks/:deckId', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    const deckId = c.req.param('deckId');
+    
+    if (!deckId) {
+      return c.json({ error: 'Deck ID is required' }, 400);
+    }
+    
+    const deck = await getDeck(userId, deckId);
+    const stats = await getAnkiDeckStats(userId, deckId);
+    
+    return c.json({
+      deck: {
+        ...deck,
+        stats,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching deck:', error);
+    return c.json(formatErrorResponse(error, 'Failed to fetch deck'), 500);
+  }
+});
+
+// Delete a deck
+ankiRoutes.delete('/decks/:deckId', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    const deckId = c.req.param('deckId');
+    
+    if (!deckId) {
+      return c.json({ error: 'Deck ID is required' }, 400);
+    }
+    
+    await deleteDeck(userId, deckId);
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting deck:', error);
+    return c.json(formatErrorResponse(error, 'Failed to delete deck'), 500);
+  }
+});
+
+// Get cards to study from a deck
+ankiRoutes.get('/decks/:deckId/study', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    const deckId = c.req.param('deckId');
+    
+    if (!deckId) {
+      return c.json({ error: 'Deck ID is required' }, 400);
+    }
+    
+    const maxNew = parseInt(c.req.query('maxNew') || '20');
+    const maxReview = parseInt(c.req.query('maxReview') || '50');
+    
+    const cards = await getAnkiStudyCards(userId, deckId, maxNew, maxReview);
+    
+    return c.json({
+      cards,
+      count: cards.length,
+    });
+  } catch (error) {
+    console.error('Error fetching study cards:', error);
+    return c.json(formatErrorResponse(error, 'Failed to fetch study cards'), 500);
+  }
+});
+
+// Get deck statistics
+ankiRoutes.get('/decks/:deckId/stats', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    const deckId = c.req.param('deckId');
+    
+    if (!deckId) {
+      return c.json({ error: 'Deck ID is required' }, 400);
+    }
+    
+    const stats = await getAnkiDeckStats(userId, deckId);
+    
+    return c.json({ stats });
+  } catch (error) {
+    console.error('Error fetching deck stats:', error);
+    return c.json(formatErrorResponse(error, 'Failed to fetch deck stats'), 500);
+  }
+});
+
+// Review a card
+ankiRoutes.post('/decks/:deckId/review', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const userId = user.id;
+    const deckId = c.req.param('deckId');
+    
+    if (!deckId) {
+      return c.json({ error: 'Deck ID is required' }, 400);
+    }
+    
+    const body = await c.req.json();
+    const { cardId, quality } = body;
+    
+    if (!cardId || quality === undefined) {
+      return c.json({ error: 'cardId and quality are required' }, 400);
+    }
+    
+    const result = await reviewAnkiCard(userId, cardId, quality);
+    
+    // Update deck last studied timestamp
+    await updateDeckLastStudied(deckId);
+    
+    return c.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error('Error reviewing card:', error);
+    return c.json(formatErrorResponse(error, 'Failed to review card'), 500);
+  }
+});
+
+// Serve media files by deck and filename
+ankiRoutes.get('/decks/:deckId/media/:filename', async (c) => {
+  try {
+    const user = getAuthenticatedUser(c);
+    const deckId = c.req.param('deckId');
+    const filename = c.req.param('filename');
+    
+    if (!deckId || !filename) {
+      return c.json({ error: 'Deck ID and filename are required' }, 400);
+    }
+    
+    const db = await getDatabase();
+    
+    // Verify deck belongs to user
+    const decks = await db
+      .select()
+      .from(ankiDecks)
+      .where(
+        and(
+          eq(ankiDecks.id, deckId),
+          eq(ankiDecks.user_id, user.id)
+        )
+      )
+      .limit(1);
+    
+    if (decks.length === 0) {
+      return c.json({ error: 'Deck not found' }, 404);
+    }
+    
+    // Get media file by deck and filename
+    const media = await db
+      .select()
+      .from(ankiMedia)
+      .where(
+        and(
+          eq(ankiMedia.deck_id, deckId),
+          eq(ankiMedia.filename, decodeURIComponent(filename))
+        )
+      )
+      .limit(1);
+    
+    if (media.length === 0) {
+      return c.json({ error: 'Media not found' }, 404);
+    }
+    
+    const mediaFile = media[0];
+    
+    // Decode base64 data
+    const buffer = Buffer.from(mediaFile.file_data, 'base64');
+    
+    // Set appropriate content type
+    c.header('Content-Type', mediaFile.mime_type || 'application/octet-stream');
+    c.header('Content-Length', buffer.length.toString());
+    c.header('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    
+    return c.body(buffer);
+  } catch (error) {
+    console.error('Error serving media:', error);
+    return c.json(formatErrorResponse(error, 'Failed to serve media'), 500);
+  }
+});
+
+// Mount Anki routes
+api.route('/protected/anki', ankiRoutes);
+
 // Mount the protected routes under /protected
 api.route('/protected', protectedRoutes);
 

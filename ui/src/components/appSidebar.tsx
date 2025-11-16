@@ -7,6 +7,7 @@ import {
   Flame,
   Brain,
   BookOpen,
+  Package,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,19 @@ export function AppSidebar({ flashcardDueCount = 0, flashcardTotalCount = 0, onO
                   <Link to="/reading">
                     <BookOpen className="w-4 h-4" />
                     <span>Reading</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  tooltip="Anki Decks" 
+                  isActive={isActive('/anki-decks')} 
+                  asChild
+                  className="hover:bg-primary/10 transition-all rounded-lg data-[active=true]:bg-gradient-to-r data-[active=true]:from-primary/20 data-[active=true]:to-primary/10 data-[active=true]:border-primary/30"
+                >
+                  <Link to="/anki-decks">
+                    <Package className="w-4 h-4" />
+                    <span>Anki Decks</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

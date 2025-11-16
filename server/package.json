@@ -16,6 +16,9 @@
   "dependencies": {
     "@hono/node-server": "^1.12.0",
     "@neondatabase/serverless": "^0.9.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.4.1",
     "dotenv": "^16.0.0",
     "drizzle-orm": "^0.30.1",
     "firebase-admin": "^12.0.0",

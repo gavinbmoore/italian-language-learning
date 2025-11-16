@@ -582,4 +582,69 @@ export const api = {
     const response = await fetchWithAuth(`/api/v1/protected/reading/history${query}`);
     return response.json();
   },
+  // Anki deck import endpoints
+  importAnkiDeck: async (file: File, customName?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (customName) {
+      formData.append('name', customName);
+    }
+    
+    const token = await getAuthToken();
+    const headers = new Headers();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/api/v1/protected/anki/import`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw createAPIError(response.status, errorData.error || 'Failed to import deck');
+    }
+    
+    return response.json();
+  },
+  getAnkiDecks: async () => {
+    const response = await fetchWithAuth('/api/v1/protected/anki/decks');
+    return response.json();
+  },
+  getAnkiDeck: async (deckId: string) => {
+    const response = await fetchWithAuth(`/api/v1/protected/anki/decks/${deckId}`);
+    return response.json();
+  },
+  deleteAnkiDeck: async (deckId: string) => {
+    const response = await fetchWithAuth(`/api/v1/protected/anki/decks/${deckId}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+  getAnkiStudyCards: async (deckId: string, maxNew?: number, maxReview?: number) => {
+    const params = new URLSearchParams();
+    if (maxNew) params.append('maxNew', maxNew.toString());
+    if (maxReview) params.append('maxReview', maxReview.toString());
+    const query = params.toString();
+    const response = await fetchWithAuth(`/api/v1/protected/anki/decks/${deckId}/study${query ? `?${query}` : ''}`);
+    return response.json();
+  },
+  reviewAnkiCard: async (deckId: string, cardId: string, quality: number) => {
+    const response = await fetchWithAuth(`/api/v1/protected/anki/decks/${deckId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId, quality }),
+    });
+    return response.json();
+  },
+  getAnkiDeckStats: async (deckId: string) => {
+    const response = await fetchWithAuth(`/api/v1/protected/anki/decks/${deckId}/stats`);
+    return response.json();
+  },
+  getAnkiTotalDueCount: async () => {
+    const response = await fetchWithAuth('/api/v1/protected/anki/due-count');
+    return response.json();
+  },
 }; 

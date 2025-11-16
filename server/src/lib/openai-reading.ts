@@ -28,6 +28,53 @@ export interface AnswerEvaluation {
 }
 
 /**
+ * Validate that Italian text has proper accents and capitalization
+ */
+function validateItalianText(text: string): { isValid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  
+  // Check for CORRECT Italian accented characters (grave accents, not acute)
+  // Italian uses: à, è, ì, ò, ù (grave) and rarely é (acute)
+  const correctItalianAccents = /[àèìòùéÀÈÌÒÙÉ]/;
+  if (!correctItalianAccents.test(text)) {
+    issues.push('No Italian accented characters found (à, è, ì, ò, ù, é)');
+  }
+  
+  // Check for WRONG accent types (Spanish/Portuguese acute accents on a, i, o, u)
+  const wrongAccents = /[áíóúÁÍÓÚ]/;
+  if (wrongAccents.test(text)) {
+    issues.push('Text contains Spanish/Portuguese accents (á, í, ó, ú) instead of Italian grave accents (à, ì, ò, ù)');
+  }
+  
+  // Check for proper sentence capitalization
+  // Split by sentence endings and check each sentence starts with capital
+  const sentences = text.split(/[.!?]+\s+/).filter(s => s.trim().length > 0);
+  let hasCapitalizedSentences = false;
+  
+  for (const sentence of sentences) {
+    const firstChar = sentence.trim()[0];
+    if (firstChar && firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+      hasCapitalizedSentences = true;
+      break;
+    }
+  }
+  
+  if (!hasCapitalizedSentences && sentences.length > 0) {
+    issues.push('Sentences do not start with capital letters');
+  }
+  
+  // Check if text has at least some basic Italian structure
+  if (text.length < 50) {
+    issues.push('Text is too short');
+  }
+  
+  return {
+    isValid: issues.length === 0,
+    issues
+  };
+}
+
+/**
  * Get trending positive news topics using simple prompting
  */
 async function getPositiveNewsTopics(): Promise<string[]> {
@@ -131,8 +178,34 @@ Only use them if they fit naturally in the context. Don't force them.`
   
   const prompt = `Write a short Italian news story about this topic: "${selectedTopic}"
 
-REQUIREMENTS:
-1. Write entirely in ITALIAN with proper accents (è, é, à, ò, ù, ì)
+🚨 CRITICAL: ITALIAN USES GRAVE ACCENTS, NOT ACUTE ACCENTS! 🚨
+
+⚠️ CORRECT Italian accent marks (GRAVE - accent slopes DOWN-LEFT \`):
+   ✅ à (città, università, età) - NOT á ❌
+   ✅ è (è, perché, caffè) - grave accent
+   ✅ é (né, poiché, perché) - acute accent (rare, but correct for e)
+   ✅ ì (così, sì) - NOT í ❌
+   ✅ ò (può, però) - NOT ó ❌
+   ✅ ù (più, giù) - NOT ú ❌
+
+⚠️ WRONG accent marks (Spanish/Portuguese - DO NOT USE):
+   ❌ á, í, ó, ú - These are WRONG for Italian!
+
+EXAMPLES OF CORRECT ITALIAN:
+✅ "La città di Roma è più verde." (città, è, più - all grave accents)
+✅ "L'università può aiutare." (università, può - grave accents)
+✅ "Perché è così importante?" (Perché has é, è and così have grave)
+
+EXAMPLES OF WRONG ITALIAN (DO NOT DO THIS):
+❌ "La cittá di Roma é piú verde." (wrong acute accents)
+❌ "L'universitá puó aiutare." (wrong acute accents)
+
+⚠️ CAPITALIZATION IS MANDATORY:
+   - EVERY sentence MUST start with a CAPITAL letter
+   - Proper nouns must be capitalized
+
+CONTENT REQUIREMENTS:
+1. Write ENTIRELY in ITALIAN with ONLY grave accents (à, è, ì, ò, ù) except é
 2. CEFR level: ${level} - ${levelGuidance[level] || levelGuidance.B1}
 3. Length: 150-250 words (approximately 8-12 sentences)
 4. Make it positive, interesting, and culturally relevant
@@ -141,49 +214,86 @@ REQUIREMENTS:
 
 Return ONLY a JSON object with this exact format, no additional text:
 {
-  "title": "Engaging Italian title for the story (5-10 words)",
-  "content": "The full Italian text of the story",
+  "title": "Engaging Italian title with GRAVE accents (à, è, ì, ò, ù)",
+  "content": "The full Italian text with ONLY GRAVE accents (à, è, ì, ò, ù) and é where appropriate",
   "sourceTopic": "Brief description of the news topic",
   "vocabularyUsed": ["list", "of", "Italian", "words", "from", "recent", "vocabulary"]
 }`;
 
-  try {
-    const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert Italian language teacher and news writer. You create engaging, accurate Italian content for language learners. Always respond with valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-    });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert Italian language teacher and news writer. You create engaging, accurate Italian content for language learners with PERFECT Italian grammar, accents (è, é, à, ò, ù, ì), and capitalization. Always respond with valid JSON only.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 800,
+      });
 
-    const responseContent = completion.choices[0]?.message?.content || '{}';
-    
-    // Extract JSON from response
-    const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in reading text response');
-    }
+      const responseContent = completion.choices[0]?.message?.content || '{}';
+      
+      // Extract JSON from response
+      const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in reading text response');
+      }
 
-    const result = JSON.parse(jsonMatch[0]) as GeneratedReadingText;
-    
-    // Validate result
-    if (!result.title || !result.content || !result.sourceTopic) {
-      throw new Error('Invalid reading text format');
+      const result = JSON.parse(jsonMatch[0]) as GeneratedReadingText;
+      
+      // Validate result structure
+      if (!result.title || !result.content || !result.sourceTopic) {
+        throw new Error('Invalid reading text format');
+      }
+      
+      // Validate Italian text quality
+      const titleValidation = validateItalianText(result.title);
+      const contentValidation = validateItalianText(result.content);
+      
+      if (!titleValidation.isValid || !contentValidation.isValid) {
+        const allIssues = [...titleValidation.issues, ...contentValidation.issues];
+        console.warn(`⚠️ Generated text quality issues (attempt ${attempt}/${maxRetries}):`, allIssues);
+        
+        if (attempt < maxRetries) {
+          console.log('🔄 Retrying text generation...');
+          continue; // Retry
+        } else {
+          console.error('❌ Max retries reached. Returning text despite quality issues.');
+          // Return anyway on last attempt rather than failing completely
+        }
+      }
+      
+      // Success!
+      if (attempt > 1) {
+        console.log(`✅ Successfully generated Italian text on attempt ${attempt}`);
+      }
+      
+      return result;
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Error generating reading text (attempt ${attempt}/${maxRetries}):`, error);
+      
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to generate reading text after ${maxRetries} attempts: ${lastError.message}`);
+      }
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    return result;
-  } catch (error) {
-    console.error('Error generating reading text:', error);
-    throw new Error(`Failed to generate reading text: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+  
+  // This should never be reached, but TypeScript needs it
+  throw new Error(`Failed to generate reading text: ${lastError?.message || 'Unknown error'}`);
 }
 
 /**
@@ -209,6 +319,10 @@ QUESTION REQUIREMENTS:
 - Free-text: Questions that require 1-2 sentence answers in Italian
 - Difficulty appropriate for ${level} level
 
+🚨 CRITICAL: If questions/answers are in Italian, use GRAVE accents (à, è, ì, ò, ù) NOT acute (á, í, ó, ú)!
+✅ Correct: più, può, è, città, università, perché
+❌ Wrong: piú, puó, é (except in perché), cittá, universitá
+
 Return ONLY a JSON array with this exact format, no additional text:
 [
   {
@@ -221,18 +335,18 @@ Return ONLY a JSON array with this exact format, no additional text:
   {
     "questionType": "free_text",
     "questionText": "Describe in Italian what happened in the story.",
-    "correctAnswer": "Expected answer in Italian",
+    "correctAnswer": "Expected answer in Italian with GRAVE accents (à, è, ì, ò, ù)",
     "orderIndex": 1
   }
 ]`;
 
   try {
     const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert Italian language teacher who creates effective comprehension questions. Always respond with valid JSON only.',
+          content: 'You are an expert Italian language teacher who creates effective comprehension questions with perfect Italian grammar, accents (è, é, à, ò, ù, ì), and capitalization. Always respond with valid JSON only.',
         },
         {
           role: 'user',

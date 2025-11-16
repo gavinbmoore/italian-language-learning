@@ -11,6 +11,8 @@ import { Page2 } from '@/pages/Page2';
 import { ComprehensibleInputConversation } from '@/pages/ComprehensibleInput';
 import { Grammar } from '@/pages/Grammar';
 import { Reading } from '@/pages/Reading';
+import { AnkiDecks } from '@/pages/AnkiDecks';
+import { AnkiDeckStudy } from '@/pages/AnkiDeckStudy';
 import { FlashcardReview } from '@/components/flashcard-review';
 import { api } from '@/lib/serverComm';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -173,6 +175,8 @@ function AppContent() {
                   />
                   <Route path="/grammar" element={<Grammar onTriggerPracticeReview={handleTriggerPracticeReview} />} />
                   <Route path="/reading" element={<Reading />} />
+                  <Route path="/anki-decks" element={<AnkiDecks />} />
+                  <Route path="/anki-decks/:deckId/study" element={<AnkiDeckStudy />} />
                   <Route path="/page1" element={<Page1 />} />
                   <Route path="/page2" element={<Page2 />} />
                   <Route path="/settings" element={<Settings />} />

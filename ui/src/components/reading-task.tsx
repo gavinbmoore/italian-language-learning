@@ -58,7 +58,8 @@ export function ReadingTask({ textId, onComplete, onClose }: ReadingTaskProps) {
 
   const renderClickableText = (content: string) => {
     // Split text into words and punctuation, preserving Italian characters
-    const regex = /(\b[\p{L}]+\b|[^\p{L}\s]+|\s+)/gu;
+    // Use \p{L}+ for words (includes accented chars) and match everything else
+    const regex = /([\p{L}]+|[^\p{L}\s]+|\s+)/gu;
     const parts = content.match(regex) || [];
 
     return (

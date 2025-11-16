@@ -1,12 +1,13 @@
 name = "italian-learning-api"
 main = "src/server.ts"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
 
 [vars]
 NODE_ENV = "production"
+FIREBASE_PROJECT_ID = "demo-project"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "italian-learning-db"
-database_id = "5670e3a0-6b35-4fdd-9269-b941f075fd1f"
-
+# DATABASE_URL should be set as a secret using: wrangler secret put DATABASE_URL
