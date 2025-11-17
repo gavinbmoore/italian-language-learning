@@ -9,6 +9,11 @@
       "source": "/(.*)",
       "destination": "/api"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "NODE_VERSION": "20"
+    }
+  }
 }
 
