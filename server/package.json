@@ -27,6 +27,7 @@
     "jose": "^5.2.3",
     "openai": "^4.104.0",
     "postgres": "^3.4.7",
+    "tsx": "^4.7.0",
     "youtube-transcript": "^1.2.1"
   },
   "devDependencies": {
