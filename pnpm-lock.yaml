@@ -88,9 +88,15 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20240208.0
         version: 4.20250525.0
+      '@types/adm-zip':
+        specifier: ^0.5.5
+        version: 0.5.7
       '@types/fs-extra':
         specifier: ^11.0.4
         version: 11.0.4
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.15.21
       dotenv-cli:
         specifier: ^7.3.0
         version: 7.4.4
@@ -2233,6 +2239,9 @@ packages:
 
   '@tootallnate/quickjs-emscripten@0.23.0':
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
+
+  '@types/adm-zip@0.5.7':
+    resolution: {integrity: sha512-DNEs/QvmyRLurdQPChqq0Md4zGvPwHerAJYWk9l2jCbD1VPpnzRJorOdiq4zsw09NFbYnhfsoEhWtxIzXpn2yw==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -7659,6 +7668,10 @@ snapshots:
   '@tootallnate/once@2.0.0': {}
 
   '@tootallnate/quickjs-emscripten@0.23.0': {}
+
+  '@types/adm-zip@0.5.7':
+    dependencies:
+      '@types/node': 22.15.21
 
   '@types/babel__core@7.20.5':
     dependencies:
